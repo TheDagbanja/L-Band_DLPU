@@ -1,5 +1,7 @@
 # LB-DLPU: An L-Band (NISAR/UAVSAR) Benchmark for InSAR Phase Unwrapping
 
+![LB-DLPU: example wrapped phase (input) and ground-truth unwrapped phase (target) across regimes and difficulty strata](assets/preview.png)
+
 LB-DLPU is a physically-simulated benchmark for **InSAR phase unwrapping at L-band**,
 calibrated to the **NISAR** (spaceborne, 20 m) and **UAVSAR** (airborne, 6 m) regimes.
 It provides **10,000** 256×256 patches, each with the wrapped phase (network input),
