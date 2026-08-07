@@ -1,0 +1,52 @@
+# @package model
+# Model configuration: Swin-T backbone, targeted LoRA, U-Net decoder.
+# Generalises our GRSL letter's config with the TGRS
+# five-arc / cross-band extensions; every new field defaults to the exact
+# GRSL behaviour (edge_k_max=1, band_token=false) unless overridden.
+
+backbone:
+  name: swin_tiny_patch4_window7_224   # timm Swin-T identifier
+  pretrained_synthetic: null           # path to synthetic-interferogram weights
+  pretrained_imagenet: true            # init from ImageNet while no synthetic prior
+                                        # exists (much better than random for pretrain)
+  in_chans: 4                          # auto-synced to data.input_grad/band_token (2/4/5)
+  freeze: true                         # initial state; the regime (set_adaptation_mode)
+                                        # is authoritative: pretrain=full FT, tta/kshot/crossband=LoRA-only
+  band_token: false                    # append a constant band-id input channel
+                                        # (proposal §7 Exp. D joint C+L training)
+
+lora:
+  rank: 8                              # r = 8 (Group 2 ablation sweeps 1,2,4,8,16,32)
+  alpha: 16                            # alpha = 16  (scaling = alpha / r = 2.0)
+  dropout: 0.0
+  targets: [q, v]                      # inject ONLY into Wq and Wv (Group 3 ablation
+                                        # also tries [q,k,v] and [q,k,v,ffn])
+
+decoder:
+  type: unet                           # U-Net over Swin features + full-res stem
+  channels: [256, 128, 96, 64, 32]     # 5 blocks: 3 Swin skips (s16/s8/s4) + 2 stem (s2/s1)
+  stem_channels: [48, 32]              # full-res stem skip widths (stride-2, stride-1)
+  # Prediction head:
+  #   'pixel' -> per-pixel wrap count K, phi_hat = psi + 2*pi*K (residue-free,
+  #              local errors, robust -> recommended for hitting RMSE targets).
+  #   'pixel_cls' -> per-pixel wrap count via CLASSIFICATION over [-k_max,k_max]
+  #              (crisper at fringe boundaries; PhaseNet-2.0 style; residue-free).
+  #   'edge'  -> per-edge ambiguity {-edge_k_max,...,+edge_k_max} + weighted-LS
+  #              integration (edge-ambiguity head; its model head is not shipped in this repo).
+  head_type: pixel
+  k_max: 16                            # (pixel_cls) wrap-count classes = [-k_max, k_max]
+  # (edge head) ambiguity half-range: 1 = GRSL 3-class {-1,0,+1} (letter,
+  # C-band); 2 = TGRS five-arc {-2,...,+2} (L-band near-fault /
+  # volcanic scenes). Drives both the decoder's out_channels (2*(2k+1)) and
+  # the MCF solver's arc construction (src/mcf.py) -- see Ablation Group 6.
+  edge_k_max: 2
+  num_directions: 2                    # horizontal + vertical edges
+  # out_channels is auto-computed as 2*(2*edge_k_max+1) when omitted (10 for
+  # the five-arc default here, 6 for edge_k_max=1); override only for a
+  # non-standard head.
+
+integrator:
+  solver: auto                         # 'auto' (DCT if weights uniform else CG) | 'dct' | 'cg'
+  cg_iters: 50                         # used when solver == 'cg'
+  cg_tol: 1.0e-6
+  weight_reduce: mean                  # coherence -> edge weight reduction

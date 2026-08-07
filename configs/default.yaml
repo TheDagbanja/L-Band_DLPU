@@ -1,0 +1,205 @@
+# Top-level Hydra config. Composes the data and model groups and holds the
+# training / adaptation / logging hyperparameters. Override anything on the CLI:
+#   python -m src.train data.batch_size=16 train.lr=1e-3 regime=crossband
+#
+# Generalises our GRSL letter's config with the TGRS
+# extension's four pillars; see model.yaml/data.yaml for the L-band and
+# five-arc specific fields.
+
+defaults:
+  - data
+  - model
+  - _self_
+
+# Keep the launch directory as cwd so relative paths like ./data keep working.
+hydra:
+  job:
+    chdir: false
+
+# Reproducibility
+seed: 42
+deterministic: true
+
+# Device: "cuda" auto-falls back to CPU when no GPU is present (get_device).
+device: cuda
+
+# Adaptation regime: pretrain | zero_shot | tta | kshot | crossband
+regime: pretrain
+
+train:
+  epochs: 100
+  lr: 2.0e-4
+  weight_decay: 0.05
+  optimizer: adamw
+  grad_clip: 1.0
+  amp: true                 # mixed precision on GPU
+  warmup_epochs: 1          # linear LR warmup, then cosine decay (stabilises full FT)
+  curriculum: true          # synthetic only: ramp difficulty easy->target over epochs
+  curriculum_start: 0.25
+  curriculum_epochs: 20
+  # Loss weights (Eq. 9/20): L = L_CE + lambda_cong*L_cong + lambda_sparse*L_sparse
+  # (+ lambda_curl*L_curl, a local residue-curl regulariser not in the paper eq.
+  # but stabilising in practice -- see our GRSL letter's notes).
+  lambda_cong: 0.0
+  lambda_curl: 1.0
+  lambda_ktv: 0.01          # (pixel head) total-variation prior on wrap count K
+  lambda_kreg: 1.0          # (pixel_cls head) ordinal term: smooth-L1(E[K], K_gt)
+  lambda_sparse: 0.0
+  # Cut classification loss: 'ce' (weighted cross-entropy) or 'focal' (Eq. 21).
+  cut_loss: focal
+  focal_gamma: 2.0
+  # Per-class weighting (focal alpha): none|inverse_sqrt|inverse|median|fixed.
+  # The five-arc proposal (Eq. 21) uses FIXED weights omega=(1,8,8,8,8): weight
+  # 1 on the DOMINANT zero-ambiguity class (no boost needed, it's ~99.7% of
+  # edges) and weight 8 on each of the four rare cut classes. Class order
+  # follows utils.py's convention (class = k + k_max), so for edge_k_max=2 the
+  # 5 classes are [k=-2,-1,0,+1,+2] and the zero class is the MIDDLE entry
+  # (index 2) -- the "1" below must line up with that index, not index 0.
+  # For the GRSL 3-class case (edge_k_max=1) switch to
+  # ce_class_weights=inverse_sqrt and leave ce_fixed_weights=null.
+  ce_class_weights: fixed
+  ce_fixed_weights: [8, 8, 1, 8, 8]
+  straight_through: false
+  val_every: 1
+  val_split: test
+  val_batches: 20
+  # End-to-end differentiable cost fine-tune (scripts/train_diff.py):
+  steps: 300
+  diff_lam: 20.0
+
+tta:                        # unsupervised test-time adaptation (Eq. 10)
+  steps: 10
+  lr: 1.0e-4
+  lambda_sparse: 0.05
+  lambda_ent: 1.0
+  lambda_consistency: 1.0
+  aug_noise_std: 0.3
+
+kshot:                      # few-shot target adaptation
+  k: 5
+  steps: 50
+  lr: 1.0e-4
+  mode: prototypical         # "prototypical" (§3.6) or "supervised" (LoRA fine-tune)
+  n_query: 0
+
+# Pillar 2: cross-band LoRA adaptation (regime=crossband, src/train.py::run_crossband).
+crossband:
+  lr: 1.0e-4                 # LoRA-only LR (proposal Exp. B fine-tuning curve)
+  epochs: 20
+  retrain_head: true         # true when edge_k_max differs from the C-band checkpoint
+                              # (3->5 classes changes the classifier head's shape --
+                              # proposal Fig. 1's "only architectural change"); set
+                              # false for a pure LoRA-only run at matched edge_k_max=1.
+  cband_root: ../InSAR-DLPU/data   # InSAR-DLPU root, for the C-band retention check
+  cband_limit: 200            # cap C-band retention eval to keep it fast
+  eval_split: test_real        # L-band split scored for the target-domain metric
+
+# scripts/crossband_AtoD.py -- Experiments A-D (proposal §7). Which to run:
+# "A" | "B" | "C" | "D" | "all".
+exp: all
+crossband_exp:
+  pair_counts: [500, 1000, 2000, 5000, 10000]   # Exp. B fine-tuning curve
+  k_lora_vs_full: 5000        # Exp. C comparison point
+  full_ft_lr: 2.0e-5           # full fine-tune LR (lower than LoRA's; full FT is unstable at LoRA's lr)
+  joint_cband_limit: 5000     # Exp. D: C-band pairs mixed into the joint training set
+  joint_epochs: 20            # Exp. D epochs
+
+eval:                       # zero_shot / evaluate.py settings
+  split: test_real
+  max_batches: null
+  cut_threshold: 0.0
+  oracle: false
+  tta: false
+  snaphu: false              # add the real SNAPHU baseline (needs: pip install snaphu)
+  snaphu_coherence: false    # false = SNAPHU on phase-derivative pseudo-coherence
+                             # (fair phase-only comparison); true = pass the dataset's
+                             # REAL coherence band so SNAPHU gets its full statistical
+                             # model (bulletproofing run; only for sources with a real
+                             # coherence band -- lband_sim/lband_real_*/geotiff)
+  snaphu_nlooks: 1.0         # equivalent number of looks SNAPHU assumes. MUST match
+                             # the data's ENL for a fair comparison: set to 20 for the
+                             # L-band sim (synth_lband n_looks=20). Leaving it at 1.0
+                             # on 20-look data handicaps SNAPHU (mis-specified noise).
+  snaphu_cost: smooth        # SNAPHU cost mode: smooth (generic) | defo (deformation
+                             # statistical model, best-suited to coseismic scenes) |
+                             # topo | p-norm. Run 'defo' once for the definitive fair
+                             # comparison on deformation-dominated data.
+  oracle_cost: true
+  pathfollow: true           # LS / quality-guided / Goldstein baselines in eval/methods/classical.py
+
+# scripts/ablation_runner.py -- systematic ablation study (proposal §6, Table 4).
+ablation:
+  groups: all                # "all" or a list, e.g. [2,3,6]
+  seeds: [0, 1, 2]
+  epochs: 25
+  eval_split: test
+  _note: null                 # populated by ablation_runner.py for approximated variants
+
+# scripts/significance_test.py -- Wilcoxon signed-rank test (proposal §5).
+significance:
+  out: null                  # optional per-scene RMSE CSV path
+
+# Stage-3 real-scene case studies (scripts/unwrap_geotiff.py [C-band, reused],
+# scripts/unwrap_nisar.py / unwrap_uavsar.py [L-band, NEW]).
+geotiff:
+  dir: null
+  wrapped: null
+  corr: null
+  unw: null
+  row0: 512
+  col0: 1152
+  size: 768
+  auto_roi: false
+  min_valid: 0.98
+  center_lon: null
+  center_lat: null
+  coh_weight: 3.0
+  tile: 256
+  stride: 128
+  out: ./outputs/scene
+
+# scripts/unwrap_nisar.py -- NISAR L2 GUNW real-scene case study (NEW).
+nisar:
+  path: null                 # granule .h5, see data/full_scenes/gunw_all
+  batch_dir: data/full_scenes/gunw_all   # scripts/unwrap_nisar_batch.py: unwrap all granules here
+  wrapped_igram: true        # true = unwrap the REAL fine noisy interferogram
+                             # (the meaningful test); false = degenerate re-wrap
+                             # of the operational product (psi=wrap(ref), floor 0)
+  row0: 4000                 # ROI top-left, in FINE-grid coords when wrapped_igram
+  col0: 4000
+  size: 2048                 # fine-grid ROI side (2048 fine = 512 coarse ~= 40km)
+  coh_weight: 0.0            # >0 fuses coherence into the cost (suppresses cut
+                             # over-prediction on clean/high-coh areas)
+  snaphu: false              # also unwrap the same phase with SNAPHU and report
+                             # ours-vs-SNAPHU agreement (Ridgecrest-style: both
+                             # residue-free, differ only by integer 2pi cycles)
+  snaphu_coherence: true     # pass the real coherence band to SNAPHU
+  snaphu_nlooks: 20.0        # SNAPHU equivalent number of looks
+  snaphu_cost: defo          # SNAPHU cost mode (defo for deformation scenes)
+  tile: 256
+  stride: 128
+  out: ./outputs/nisar_scene
+
+# scripts/unwrap_uavsar.py -- UAVSAR ground-range real-scene case study (NEW).
+uavsar:
+  ann: null                  # .ann file, see data/full_scenes/uavsar/{A,B,C}
+  row0: 8000
+  col0: 8000
+  size: 1024
+  tile: 256
+  stride: 128
+  out: ./outputs/uavsar_scene
+
+logging:
+  backend: wandb            # wandb | tensorboard | none
+  project: insar-peft-unwrap-lband
+  run_name: null
+  log_dir: ./outputs
+  log_every: 50
+  vis_every: 500
+  verbose: false
+
+checkpoint:
+  dir: ./checkpoints
+  save_every: 1
+  resume: null

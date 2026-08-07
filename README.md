@@ -53,8 +53,34 @@ plus per-patch attributes. See the
 
 ## Code
 
-The dataset generator and evaluation harness will be released in this repository **upon
-publication** of the accompanying paper.
+This repository holds the dataset generator, sensor calibration, evaluation harness, and
+reference baselines. The dataset itself (≈9 GB) lives on HuggingFace / Zenodo (above).
+
+| Path | Contents |
+|---|---|
+| `src/` | dataset generator + calibration (`synth_lband.py`, `synthetic_engine.py`, `lband_dataset.py`), residue-free MCF solver (`mcf.py`), sensor loaders (`nisar_gunw.py`, `uavsar_io.py`), classical baselines (`baselines.py`), deep baselines (`baselines_dl/`) |
+| `eval/` | method-blind evaluation harness: metrics (`metrics.py`), driver (`eval_baselines.py`), aggregation + significance tests (`report.py`), method registry (`methods/`) |
+| `scripts/` | `train_baseline.py` (train the deep baselines), `unwrap_dl_geotiff.py` (whole-scene tiled DL inference + stitching), `preview_scenes.py` |
+| `paper/` | figure-generation scripts (`make_paper_figures.py`, `make_fig1_pipeline.py`, `make_fig7_realgranule.py`, `make_fig7_combined.py`) |
+| `configs/` | Hydra configs for baseline training |
+
+```bash
+pip install -r requirements.txt
+
+# score every method (classical + minimum-cost-flow + deep) on the frozen test split
+python -m eval.eval_baselines --help
+# reproduce the paper figures (calibration, well-posedness, difficulty, leaderboard, transfer)
+python paper/make_paper_figures.py
+python paper/make_fig7_combined.py --help
+```
+
+The harness scores each unwrapper per regime × difficulty on RMSE, MAE, PSNR, SSIM,
+cycle-slip (jump) rate, residue count, % residue-free, and five-arc |k|≥2 edge accuracy,
+and emits `leaderboard.csv` / `leaderboard.md` plus paired significance tests. The
+minimum-cost-flow family (`unit_mcf`, `snaphu_cost`, `gt_grad_cost`) is residue-free by
+construction; `gt_grad_cost` is the certified oracle reference. The learned-cost MCF is
+released with its own method paper (AP-GARSS 2026); its leaderboard result is reported in
+the LB-DLPU paper.
 
 ## Citation
 
@@ -81,5 +107,6 @@ If you use LB-DLPU, please cite the dataset and the paper:
 
 ## License
 
-**Dataset: CC-BY-4.0.** Copernicus GLO-30 DEM data used under their terms; UAVSAR data
-courtesy NASA/JPL-Caltech; NISAR L2 products distributed by the ASF DAAC.
+**Code: MIT** (see [`LICENSE`](LICENSE)). **Dataset: CC-BY-4.0.** Copernicus GLO-30 DEM
+data used under their terms; UAVSAR data courtesy NASA/JPL-Caltech; NISAR L2 products
+distributed by the ASF DAAC.

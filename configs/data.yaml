@@ -1,0 +1,83 @@
+# @package data
+# Dataset configuration -- L-band (this extension) by default, with the
+# C-band sources (dlpu/geotiff/synthetic) still available unchanged for
+# cross-band adaptation (regime=crossband) and joint C+L training (Exp. D).
+# Consumed by src/dataset.py::build_dataloader. Override on the CLI, e.g.:
+#   python -m src.train data.batch_size=16 data.source=lband_real_nisar
+
+# data.source selects the loader:
+#   "dlpu"             -- C-band InSAR-DLPU .mat benchmark (../InSAR-DLPU/data)
+#   "geotiff"           -- real C-band Sentinel-1 GeoTIFF (Stream C)
+#   "synthetic"         -- on-the-fly C-band physics generator
+#   "lband_sim"         -- L-band synthetic (data/LB_DLPU/sim), NEW
+#   "lband_real_nisar"  -- real NISAR L2 GUNW patches (data/LB_DLPU/real), NEW
+#   "lband_real_uavsar" -- real UAVSAR ground-range patches, NEW
+source: lband_sim
+
+# Spatial size the Swin encoder is built for, and the split used by the
+# zero_shot / tta / crossband regimes (train always uses the 'train' split).
+img_size: 256
+split: test_real
+
+# Input encoding: (cos psi, sin psi) plus, when true, the wrapped phase
+# gradients W(dpsi)_x/y as extra channels (4 total). The model's in_chans is
+# auto-synced to this (+1 more when band_token is set).
+input_grad: true
+
+# Ambiguity half-range for label computation: 1 = GRSL 3-class {-1,0,+1},
+# 2 = TGRS five-arc {-2,...,+2} (proposal Pillar 3). Must match
+# model.decoder.edge_k_max for the edge head; irrelevant for pixel heads.
+k_max: 2
+
+# Append a constant band-id channel (0.0=C, 1.0=L) to the network input --
+# proposal §7 Exp. D "joint C+L training" with a 1-bit band-conditioning
+# token. Must match model.backbone.band_token.
+band_token: false
+
+# Root for the selected source: L-band -> data/LB_DLPU (this repo);
+# C-band dlpu -> point at ../InSAR-DLPU/data when source=dlpu/synthetic.
+root: ./data/LB_DLPU
+
+# Compute per-edge ambiguity labels from the absolute/reference phase. Set
+# false to emulate the label-free test-time-adaptation setting.
+return_labels: true
+clamp_k: true          # clamp k_e to {-k_max, ..., +k_max}
+limit: null            # cap samples per split (null = use all); handy for CPU tests
+
+# --- Train-time augmentation (sim->real robustness; TRAIN split only) ---
+# REUSED unchanged from the GRSL letter (src/augment.py); disabled by default
+# for L-band sim (the release is already NISAR-calibrated) -- enable for
+# extra robustness experiments.
+augment:
+  enabled: false
+  prob: 0.9
+  d4: true
+  scale: [0.40, 1.10]
+  noise_std: [0.3, 2.5]
+  patchy: true
+  patch_scale: 32.0
+
+# DataLoader settings (tune per machine; defaults suit a single GPU).
+batch_size: 8
+num_workers: 4
+pin_memory: null       # null -> auto (true only on CUDA)
+drop_last: null        # null -> true for the train split
+
+# --- Stream C (data.source = geotiff) only ---
+files: null
+wrapped_band: 1
+coherence_band: 2
+absolute_band: null
+weight_reduce: mean
+
+# --- C-band synthetic engine (data.source = synthetic) only ---
+epoch_size: 30000
+val_size: 500
+synthetic:
+  img_size: 256
+  pixel_spacing_m: 90.0
+  wavelength_m: 0.0555         # Sentinel-1 C-band
+  incidence_deg: 38.0
+  looks: 8
+  coherence_mean: [0.4, 0.95]
+  difficulty: 0.5
