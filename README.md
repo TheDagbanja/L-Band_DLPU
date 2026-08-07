@@ -82,6 +82,16 @@ construction; `gt_grad_cost` is the certified oracle reference. The learned-cost
 released with its own method paper (AP-GARSS 2026); its leaderboard result is reported in
 the LB-DLPU paper.
 
+**Reference baselines** (exactly the methods reported in the paper):
+
+- *Classical:* `goldstein`, `quality_guided`, `weighted_ls`
+- *Network-flow (residue-free):* `unit_mcf`, `snaphu_cost`, `gt_grad_cost` (oracle reference)
+- *Deep learning* (trained on the LB-DLPU train split): `phasenet2`, `dlpu_cnn`,
+  `gradient_net`, `attention_unet`, `deeplabv3plus`, `unetpp`
+
+Trained model weights are not distributed; train the deep baselines with
+`scripts/train_baseline.py` before scoring them.
+
 ## Citation
 
 If you use LB-DLPU, please cite the dataset and the paper:
@@ -89,7 +99,7 @@ If you use LB-DLPU, please cite the dataset and the paper:
 ```bibtex
 @dataset{dagbanja_lbdlpu_data_2026,
   title     = {LB-DLPU: An L-Band (NISAR/UAVSAR) Benchmark for InSAR Phase Unwrapping},
-  author    = {Dagbanja, Simon and Qian, Jiang},
+  author    = {Dagbanja, Simon and Qian, Jiang and Lv, Haitao},
   year      = {2026},
   publisher = {Zenodo},
   doi       = {10.5281/zenodo.21768604},
