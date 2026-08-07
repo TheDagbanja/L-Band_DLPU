@@ -61,7 +61,6 @@ reference baselines. The dataset itself (≈9 GB) lives on HuggingFace / Zenodo 
 | `src/` | dataset generator + calibration (`synth_lband.py`, `synthetic_engine.py`, `lband_dataset.py`), residue-free MCF solver (`mcf.py`), sensor loaders (`nisar_gunw.py`, `uavsar_io.py`), classical baselines (`baselines.py`), deep baselines (`baselines_dl/`) |
 | `eval/` | method-blind evaluation harness: metrics (`metrics.py`), driver (`eval_baselines.py`), aggregation + significance tests (`report.py`), method registry (`methods/`) |
 | `scripts/` | `train_baseline.py` (train the deep baselines), `unwrap_dl_geotiff.py` (whole-scene tiled DL inference + stitching), `preview_scenes.py` |
-| `paper/` | figure-generation scripts (`make_paper_figures.py`, `make_fig1_pipeline.py`, `make_fig7_realgranule.py`, `make_fig7_combined.py`) |
 | `configs/` | Hydra configs for baseline training |
 
 ```bash
@@ -69,9 +68,6 @@ pip install -r requirements.txt
 
 # score every method (classical + minimum-cost-flow + deep) on the frozen test split
 python -m eval.eval_baselines --help
-# reproduce the paper figures (calibration, well-posedness, difficulty, leaderboard, transfer)
-python paper/make_paper_figures.py
-python paper/make_fig7_combined.py --help
 ```
 
 The harness scores each unwrapper per regime × difficulty on RMSE, MAE, PSNR, SSIM,
