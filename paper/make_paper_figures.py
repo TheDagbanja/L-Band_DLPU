@@ -404,7 +404,7 @@ def fig6_rmse_by_difficulty():
     present -= EXCLUDE
     preferred = ["oracle_cost", "gt_grad_cost", "unit_mcf",
                  "snaphu_cost", "phasenet2", "dlpu_cnn", "gradient_net", "attention_unet",
-                 "deeplabv3plus", "unetpp", "denet", "quality_guided", "weighted_ls", "goldstein"]
+                 "deeplabv3plus", "unetpp", "quality_guided", "weighted_ls", "goldstein"]
     methods = [m for m in preferred if m in present] + sorted(present - set(preferred))
     HILITE = {"oracle_cost", "gt_grad_cost"}
     DISPLAY = {"oracle_cost": "oracle cost", "gt_grad_cost": "oracle cost"}

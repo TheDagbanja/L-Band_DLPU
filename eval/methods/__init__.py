@@ -38,7 +38,7 @@ class Method:
 # Canonical leaderboard row order (spec s2 table).
 ALL_METHODS: Tuple[str, ...] = (
     "goldstein", "quality_guided", "weighted_ls",
-    "unit_mcf", "snaphu_cost", "gt_grad_cost", "denet",
+    "unit_mcf", "snaphu_cost", "gt_grad_cost",
     "phasenet2", "dlpu_cnn", "gradient_net",
     "attention_unet", "deeplabv3plus", "unetpp",
 )
@@ -65,7 +65,6 @@ def build_registry(
         "unit_mcf": mcf_methods.unit_mcf,
         "snaphu_cost": lambda: mcf_methods.snaphu_cost(snaphu_cfg or {}),
         "gt_grad_cost": mcf_methods.gt_grad_cost,
-        "denet": lambda: mcf_methods.denet_cost(weights_dir=weights_dir, device=device),
         "phasenet2": lambda: dl_methods.dl_baseline("phasenet2", weights_dir, device),
         "dlpu_cnn": lambda: dl_methods.dl_baseline("dlpu_cnn", weights_dir, device),
         "gradient_net": lambda: dl_methods.dl_baseline("gradient_net", weights_dir, device),

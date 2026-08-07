@@ -35,7 +35,6 @@ from src.baselines_dl.gradient_net import GradientNetBaseline, loss_from_k_max
 from src.baselines_dl.attention_unet import AttentionUNetBaseline, attention_unet_loss
 from src.baselines_dl.deeplabv3plus import DeepLabV3PlusBaseline, deeplabv3plus_loss
 from src.baselines_dl.unetpp import UNetPPBaseline, unetpp_loss
-from src.baselines_dl.denet import DENetBaseline, denet_loss
 
 
 def _kcls(cfg):
@@ -48,7 +47,6 @@ _BUILDERS = {
     "gradient_net": lambda cfg, in_chans: GradientNetBaseline(in_chans=in_chans),
     "attention_unet": lambda cfg, in_chans: AttentionUNetBaseline(in_chans=in_chans),
     "deeplabv3plus": lambda cfg, in_chans: DeepLabV3PlusBaseline(in_chans=in_chans, k_max=_kcls(cfg)),
-    "denet": lambda cfg, in_chans: DENetBaseline(),   # builds its own 5-ch input from psi
     "unetpp": lambda cfg, in_chans: UNetPPBaseline(in_chans=in_chans),
 }
 
@@ -86,8 +84,6 @@ def _loss(name: str, cfg: DictConfig, outputs, batch):
         return deeplabv3plus_loss(outputs, batch, k_max=_kcls(cfg))
     if name == "unetpp":
         return unetpp_loss(outputs, batch, lambda_tv=float(cfg.train.get("lambda_ktv", 0.01)))
-    if name == "denet":
-        return denet_loss(outputs, batch, k_max=int(cfg.data.get("k_max", 1)))
     raise ValueError(f"Unknown baseline={name!r}; choose from {list(_BUILDERS)}.")
 
 
@@ -136,19 +132,6 @@ def main(cfg: DictConfig) -> None:
             path = os.path.join(cfg.checkpoint.dir, f"{name}_last.pt")
             torch.save(model.state_dict(), path)
         print(f"Training complete. Final checkpoint: {path}")
-
-    # Cost-predicting baselines (DENet) emit a per-edge cost, not a phase field, so
-    # they have no `phi_hat` to score here -- their unwrapping only exists after the
-    # MCF solve. They are evaluated through the solver by the eval registry
-    # (`eval/methods/mcf_methods.py::denet_cost`, i.e. `--methods denet`).
-    if name == "denet":
-        print(f"[{name}] predicts MCF costs, not phase: skipping the phi_hat eval.\n"
-              f"       score it through the solver with:\n"
-              f"       python -m eval.eval_baselines --source dlpu --data <DLPU root> "
-              f"--methods denet --weights-dir {cfg.checkpoint.dir}")
-        if wb is not None:
-            wb.finish()
-        return
 
     # --- Evaluation on the configured eval split (same protocol as eval.eval_baselines) ---
     split = cfg.eval.get("split", "test")
