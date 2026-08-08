@@ -95,7 +95,7 @@ If you use LB-DLPU, please cite the dataset and the paper:
 ```bibtex
 @dataset{dagbanja_lbdlpu_data_2026,
   title     = {LB-DLPU: An L-Band (NISAR/UAVSAR) Benchmark for InSAR Phase Unwrapping},
-  author    = {Dagbanja, Simon and Qian, Jiang and Lv, Haitao},
+  author    = {Dagbanja, Simon and Qian, Jiang},
   year      = {2026},
   publisher = {Zenodo},
   doi       = {10.5281/zenodo.21768604},
