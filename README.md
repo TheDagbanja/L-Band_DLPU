@@ -103,7 +103,7 @@ If you use LB-DLPU, please cite the dataset and the paper:
 }
 
 @article{dagbanja_lbdlpu_paper_2026,
-  title   = {LB-DLPU: A Well-Posedness-Certified, NISAR/UAVSAR-Calibrated L-Band Benchmark for InSAR Phase Unwrapping},
+  title   = {LB-DLPU: A Recoverability-Certified, NISAR/UAVSAR-Calibrated L-Band Benchmark for InSAR Phase Unwrapping},
   author  = {Dagbanja, Simon and Qian, Jiang and Lv, Haitao},
   journal = {#Will be updated upon publication},
   year    = {2026},
