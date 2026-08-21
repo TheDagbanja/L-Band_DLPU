@@ -12,7 +12,7 @@ patch.
 
 Two properties set it apart from existing (C-band, RMSE-only) PU datasets:
 
-- **Well-posedness certificate** — every scene is *provably* recoverable: a noiseless-oracle
+- **Recoverability certificate** — every scene is *provably* recoverable: a noiseless-oracle
   minimum-cost-flow (MCF) unwrapper reconstructs each patch to within **0.035 rad** given the
   correct per-edge costs (100% of 10,000 scenes pass). Any error a method incurs is
   attributable to the method, not to an unsolvable target.
@@ -74,9 +74,7 @@ The harness scores each unwrapper per regime × difficulty on RMSE, MAE, PSNR, S
 cycle-slip (jump) rate, residue count, % residue-free, and five-arc |k|≥2 edge accuracy,
 and emits `leaderboard.csv` / `leaderboard.md` plus paired significance tests. The
 minimum-cost-flow family (`unit_mcf`, `snaphu_cost`, `gt_grad_cost`) is residue-free by
-construction; `gt_grad_cost` is the certified oracle reference. The learned-cost MCF is
-released with its own method paper (AP-GARSS 2026); its leaderboard result is reported in
-the LB-DLPU paper.
+construction; `gt_grad_cost` is the certified oracle reference.
 
 **Reference baselines** (exactly the methods reported in the paper):
 
