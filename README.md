@@ -108,6 +108,10 @@ If you use LB-DLPU, please cite the dataset and the paper:
   note    = {under review}
 }
 ```
+**Preprint**
+
+Dagbanja, Simon and Qian, Jiang and Lv, Haitao, LB-DLPU: A Recoverability-Certified L-Band InSAR Phase-Unwrapping Benchmark for Reliable Deformation Retrieval (August 08, 2026). 
+Available at SSRN: https://ssrn.com/abstract=7358019 or http://dx.doi.org/10.2139/ssrn.7358019
 
 ## License
 
